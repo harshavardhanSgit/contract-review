@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { connection } from "next/server";
 import { db } from "@/lib/db"
 
@@ -26,6 +27,9 @@ export default function Home() {
       <Suspense fallback={<p className="text-zinc-500">Checking database...</p>}>
         <DatabaseStatus />
       </Suspense>
+      <Link href="/signup" className="underline">
+        Create an account
+      </Link>
     </main>
   );
 }
