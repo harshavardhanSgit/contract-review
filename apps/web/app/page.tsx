@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { db } from "@/lib/db";
+import { db } from "@/lib/db"
 
 async function DatabaseStatus() {
   await connection();
