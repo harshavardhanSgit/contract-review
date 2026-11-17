@@ -4,6 +4,9 @@ import type { Role } from "@/app/generated/prisma/client";
 import { db } from "@/lib/db";
 import {
   ACCESS_TOKEN_SECONDS,
+  REFRESH_TOKEN_SECONDS,
+  createRefreshToken,
+  hashToken,
   signAccessToken,
   verifyAccessToken,
 } from "@/lib/auth/tokens";
@@ -30,15 +33,28 @@ export async function startSession(user: {
     organisationId: user.organisationId,
     role: user.role,
   });
+  const refreshToken = await createRefreshToken(user.id);
 
   const cookieStore = await cookies();
   cookieStore.set("access_token", accessToken, cookieOptions(ACCESS_TOKEN_SECONDS));
+  cookieStore.set("refresh_token", refreshToken, cookieOptions(REFRESH_TOKEN_SECONDS));
 }
 
-// Called on log out. Removes the cookie from this browser.
+// Called on log out. Crosses the refresh token out in the database,
+// then removes both cookies from this browser.
 export async function endSession() {
   const cookieStore = await cookies();
+  const refreshToken = cookieStore.get("refresh_token")?.value;
+
+  if (refreshToken) {
+    await db.refreshToken.updateMany({
+      where: { tokenHash: hashToken(refreshToken), revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   cookieStore.delete("access_token");
+  cookieStore.delete("refresh_token");
 }
 
 // Who is making this request? Returns the user, or null if not logged in.

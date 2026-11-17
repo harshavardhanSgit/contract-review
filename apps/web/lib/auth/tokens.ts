@@ -1,8 +1,11 @@
 import "server-only";
+import { createHash, randomBytes } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
+import { db } from "@/lib/db";
 import type { Role } from "@/app/generated/prisma/client";
 
 export const ACCESS_TOKEN_SECONDS = 15 * 60; // 15 minutes
+export const REFRESH_TOKEN_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 const jwtSecret = process.env.JWT_SECRET;
 if (!jwtSecret) {
@@ -39,4 +42,23 @@ export async function verifyAccessToken(token: string): Promise<AccessClaims | n
   } catch {
     return null; // edited, expired, or not a token at all
   }
+}
+
+// A fingerprint of the token. Same token, same fingerprint; it can't be turned back.
+export function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+// Makes a refresh token: 32 random bytes. The database gets only its hash;
+// the real token is returned so it can go into the cookie.
+export async function createRefreshToken(userId: string): Promise<string> {
+  const token = randomBytes(32).toString("base64url");
+  await db.refreshToken.create({
+    data: {
+      userId,
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + REFRESH_TOKEN_SECONDS * 1000),
+    },
+  });
+  return token;
 }

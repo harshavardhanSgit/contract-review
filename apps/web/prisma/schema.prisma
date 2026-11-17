@@ -31,5 +31,22 @@ model User {
   organisationId String
   organisation   Organisation @relation(fields: [organisationId], references: [id])
 
+  refreshTokens RefreshToken[]
+
   @@index([organisationId])
+}
+
+// One row per login. The token itself lives only in the user's cookie;
+// we keep a SHA-256 hash of it, so a database leak doesn't hand out live tokens.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
