@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { Role } from "@/app/generated/prisma/client";
 import { db } from "@/lib/db";
 import {
@@ -71,4 +72,13 @@ export async function getCurrentUser() {
     where: { id: claims.userId },
     select: { id: true, email: true, role: true, organisationId: true },
   });
+}
+
+// For pages and actions that need a logged-in user. Not logged in → go to /login.
+export async function requireUser() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+  return user;
 }

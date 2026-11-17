@@ -40,6 +40,9 @@ async function AccountBar() {
       <p>
         Signed in as {user.email} ({user.role})
       </p>
+      <Link href="/team" className="underline">
+        Team
+      </Link>
       <form action={logout}>
         <button type="submit" className="underline">
           Log out
