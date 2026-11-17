@@ -11,8 +11,8 @@ import {
   verifyAccessToken,
 } from "@/lib/auth/tokens";
 
-// The same safety rules for every login cookie.
-function cookieOptions(maxAge: number) {
+// The same safety rules for every login cookie. Also used by proxy.ts.
+export function cookieOptions(maxAge: number) {
   return {
     httpOnly: true, // browser JavaScript can't read it
     secure: process.env.NODE_ENV === "production", // HTTPS only on the live site
