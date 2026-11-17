@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
-import { db } from "@/lib/db"
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth/session";
+import { logout } from "@/app/actions/auth";
 
 async function DatabaseStatus() {
   await connection();
@@ -16,6 +18,37 @@ async function DatabaseStatus() {
   );
 }
 
+// Reads the login cookie, so it must sit inside <Suspense>.
+async function AccountBar() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return (
+      <p className="flex gap-4">
+        <Link href="/login" className="underline">
+          Log in
+        </Link>
+        <Link href="/signup" className="underline">
+          Create an account
+        </Link>
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-4">
+      <p>
+        Signed in as {user.email} ({user.role})
+      </p>
+      <form action={logout}>
+        <button type="submit" className="underline">
+          Log out
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <main className="mx-auto flex max-w-2xl flex-1 flex-col gap-4 px-6 py-24">
@@ -27,9 +60,9 @@ export default function Home() {
       <Suspense fallback={<p className="text-zinc-500">Checking database...</p>}>
         <DatabaseStatus />
       </Suspense>
-      <Link href="/signup" className="underline">
-        Create an account
-      </Link>
+      <Suspense fallback={null}>
+        <AccountBar />
+      </Suspense>
     </main>
   );
 }

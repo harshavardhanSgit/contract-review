@@ -1,0 +1,58 @@
+import "server-only";
+import { cookies } from "next/headers";
+import type { Role } from "@/app/generated/prisma/client";
+import { db } from "@/lib/db";
+import {
+  ACCESS_TOKEN_SECONDS,
+  signAccessToken,
+  verifyAccessToken,
+} from "@/lib/auth/tokens";
+
+// The same safety rules for every login cookie.
+function cookieOptions(maxAge: number) {
+  return {
+    httpOnly: true, // browser JavaScript can't read it
+    secure: process.env.NODE_ENV === "production", // HTTPS only on the live site
+    sameSite: "lax" as const, // not sent along with most requests from other sites
+    path: "/", // sent to every page of this app
+    maxAge, // seconds until the browser deletes it
+  };
+}
+
+// Called right after the password check passes.
+export async function startSession(user: {
+  id: string;
+  organisationId: string;
+  role: Role;
+}) {
+  const accessToken = await signAccessToken({
+    userId: user.id,
+    organisationId: user.organisationId,
+    role: user.role,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set("access_token", accessToken, cookieOptions(ACCESS_TOKEN_SECONDS));
+}
+
+// Called on log out. Removes the cookie from this browser.
+export async function endSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete("access_token");
+}
+
+// Who is making this request? Returns the user, or null if not logged in.
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("access_token")?.value;
+  if (!token) return null;
+
+  const claims = await verifyAccessToken(token);
+  if (!claims) return null;
+
+  // The token proves who you are. The database gives the latest email and role.
+  return db.user.findUnique({
+    where: { id: claims.userId },
+    select: { id: true, email: true, role: true, organisationId: true },
+  });
+}
