@@ -18,7 +18,8 @@ model Organisation {
   name      String
   createdAt DateTime @default(now())
 
-  users User[]
+  users     User[]
+  contracts Contract[]
 }
 
 model User {
@@ -32,12 +33,38 @@ model User {
   organisation   Organisation @relation(fields: [organisationId], references: [id])
 
   refreshTokens RefreshToken[]
+  contracts     Contract[]
 
   @@index([organisationId])
 }
 
 // One row per login. The token itself lives only in the user's cookie;
 // we keep a SHA-256 hash of it, so a database leak doesn't hand out live tokens.
+// One status at a time, like a parcel tracker. Only these 4 values are allowed.
+enum ContractStage {
+  INTAKE
+  AI_REVIEW
+  HUMAN_REVIEW
+  APPROVED
+}
+
+model Contract {
+  id        String        @id @default(uuid())
+  title     String
+  stage     ContractStage @default(INTAKE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id])
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  // The most common query: "my organisation's contracts, newest first".
+  @@index([organisationId, createdAt])
+}
+
 model RefreshToken {
   id        String    @id @default(uuid())
   tokenHash String    @unique
