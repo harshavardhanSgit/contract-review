@@ -61,3 +61,71 @@ export async function addMember(
   refresh();
   return { ok: true, message: `Added ${email} as ${role}.` };
 }
+
+const ChangeRoleSchema = z.object({
+  userId: z.uuid({ error: "Unknown member." }),
+  role: z.enum(["ADMIN", "REVIEWER", "VIEWER"], { error: "Pick a role." }),
+});
+
+export type ChangeRoleState = { message?: string } | undefined;
+
+export async function changeRole(
+  prevState: ChangeRoleState,
+  formData: FormData,
+): Promise<ChangeRoleState> {
+  // 1. The keycard check comes first.
+  const me = await requireRole("ADMIN");
+
+  // 2. Check the input.
+  const parsed = ChangeRoleSchema.safeParse({
+    userId: formData.get("userId"),
+    role: formData.get("role"),
+  });
+  if (!parsed.success) {
+    return { message: parsed.error.issues[0].message };
+  }
+  const { userId, role } = parsed.data;
+
+  // 3. Read and write inside one transaction, so two admins can't both
+  //    remove each other at the same moment and leave the team with no admin.
+  try {
+    const problem = await db.$transaction(
+      async (tx) => {
+        // The userId came from the browser, so don't trust it on its own:
+        // the member must be in MY organisation.
+        const member = await tx.user.findFirst({
+          where: { id: userId, organisationId: me.organisationId },
+          select: { role: true },
+        });
+        if (!member) return "Member not found.";
+        if (member.role === role) return null; // nothing to change
+
+        // Never leave a team without an admin.
+        if (member.role === "ADMIN") {
+          const admins = await tx.user.count({
+            where: { organisationId: me.organisationId, role: "ADMIN" },
+          });
+          if (admins === 1) return "Your team needs at least one admin.";
+        }
+
+        await tx.user.update({ where: { id: userId }, data: { role } });
+        return null;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+    if (problem) return { message: problem };
+  } catch (error) {
+    // P2034: two changes collided. The database cancelled this one.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2034"
+    ) {
+      return { message: "Someone changed the team at the same time. Try again." };
+    }
+    throw error;
+  }
+
+  // 4. Re-render the page with the new role.
+  refresh();
+  return undefined;
+}

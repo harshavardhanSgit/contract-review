@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/session";
 import { AddMemberForm } from "./add-member-form";
+import { RoleSelect } from "./role-select";
 
 export default function TeamPage() {
   return (
@@ -36,12 +37,17 @@ async function TeamList() {
       <p className="text-zinc-600 dark:text-zinc-400">{organisation?.name}</p>
       <ul className="flex flex-col divide-y rounded border">
         {members.map((member) => (
-          <li key={member.id} className="flex justify-between px-4 py-2">
+          <li key={member.id} className="flex items-center justify-between px-4 py-2">
             <span>
               {member.email}
               {member.id === me.id && " (you)"}
             </span>
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">{member.role}</span>
+            {me.role === "ADMIN" ? (
+              // key={member.role}: when the role changes, start a fresh dropdown showing the new role.
+              <RoleSelect key={member.role} userId={member.id} role={member.role} />
+            ) : (
+              <span className="text-sm text-zinc-600 dark:text-zinc-400">{member.role}</span>
+            )}
           </li>
         ))}
       </ul>
