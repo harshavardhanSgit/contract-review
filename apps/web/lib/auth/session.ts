@@ -82,3 +82,12 @@ export async function requireUser() {
   }
   return user;
 }
+
+// The keycard check, for actions only some roles may do. Wrong role → refuse.
+export async function requireRole(...allowed: Role[]) {
+  const user = await requireUser();
+  if (!allowed.includes(user.role)) {
+    throw new Error("You don't have permission to do this.");
+  }
+  return user;
+}

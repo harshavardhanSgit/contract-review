@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/session";
+import { AddMemberForm } from "./add-member-form";
 
 export default function TeamPage() {
   return (
@@ -44,6 +45,9 @@ async function TeamList() {
           </li>
         ))}
       </ul>
+
+      {/* Hiding the form is only for convenience. The real check is inside addMember(). */}
+      {me.role === "ADMIN" && <AddMemberForm />}
     </>
   );
 }
